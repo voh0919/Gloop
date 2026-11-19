@@ -189,7 +189,7 @@ private struct RequestMessage: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 if !text.isEmpty {
-                    Text("“\(text)”")
+                    Text(text)
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let attachment {
@@ -244,7 +244,7 @@ private struct HistoryRow: View {
                             .buttonStyle(.pressable)
                     }
                     if !request.note.isEmpty {
-                        Text("“\(request.note)”").font(.subheadline)
+                        Text(request.note).font(.subheadline)
                     }
                 }
                 .foregroundStyle(Theme.onColor)

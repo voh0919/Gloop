@@ -457,7 +457,7 @@ private struct Bubble: View {
                     .accessibilityLabel(media.kind == .video ? "Video, tap to play" : "Photo, tap to view")
                 }
                 if !message.text.isEmpty {
-                    Text(message.event == nil ? message.text : "“\(message.text)”")
+                    Text(message.text)
                 }
             }
         }
