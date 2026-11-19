@@ -209,64 +209,40 @@ private struct RequestMessage: View {
     }
 }
 
-/// An answered request, shown as a tiny conversation: their request, then your
-/// answer as a reply (with your note and any photo or video).
+/// An answered request, in one line: who, which app, and what you did.
+/// The full back-and-forth lives in that friend's chat.
 private struct HistoryRow: View {
     let request: UnlockRequest
     @Environment(AppModel.self) private var model
-    @State private var viewing: Attachment?
 
     var body: some View {
         let person = model.person(request.from)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                if let person { Avatar(person: person, size: 30) }
-                Text("\(person?.firstName ?? "Someone") asked for \(request.minutes) min")
+        HStack(spacing: 12) {
+            if let person { Avatar(person: person, size: 32) }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(person?.firstName ?? "Someone")
                     .font(.subheadline.weight(.semibold))
-                Text("· \(request.appName)")
-                    .font(.footnote)
+                Text("\(request.appName) · \(request.date.shortAgo)")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
             }
-            if !request.reason.isEmpty || request.proof != nil {
-                RequestMessage(text: request.reason, attachment: request.proof,
-                               color: person?.color ?? Theme.accent) { viewing = $0 }
-                    .padding(.leading, 40)
-            }
-            // Your answer, as a reply on the right.
-            HStack {
-                Spacer(minLength: 50)
-                VStack(alignment: .trailing, spacing: 6) {
-                    Label(outcome, systemImage: isSlimed ? "drop.fill" : "checkmark.circle.fill")
-                        .font(.footnote.weight(.bold))
-                    if let media = request.answerMedia {
-                        Button { viewing = media } label: { AttachmentThumb(attachment: media, size: 56) }
-                            .buttonStyle(.pressable)
-                    }
-                    if !request.note.isEmpty {
-                        Text(request.note).font(.subheadline)
-                    }
-                }
+            Spacer(minLength: 8)
+            Label(outcome, systemImage: isSlimed ? "drop.fill" : "checkmark")
+                .font(.caption.weight(.bold))
                 .foregroundStyle(Theme.onColor)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(isSlimed ? Theme.lime : Theme.accent,
-                            in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18,
-                                                       bottomTrailingRadius: 4, topTrailingRadius: 18,
-                                                       style: .continuous))
-            }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(isSlimed ? Theme.lime : Theme.accent, in: Capsule())
         }
-        .padding(14)
-        .background(Theme.fill.opacity(0.5), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .fullScreenCover(item: $viewing) { MediaViewer(attachment: $0) }
+        .padding(.vertical, 4)
     }
 
     private var isSlimed: Bool { request.state == .denied }
 
     private var outcome: String {
         switch request.state {
-        case .approved(let m): "You gave \(m) min"
-        case .denied: "You slimed them out"
+        case .approved(let m): "Gave \(m) min"
+        case .denied: "Slimed"
         case .pending: ""
         }
     }
