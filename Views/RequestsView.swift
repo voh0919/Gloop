@@ -69,17 +69,6 @@ private struct RequestCard: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
-                    // At a glance: what they sent along.
-                    HStack(spacing: 5) {
-                        if !request.reason.isEmpty {
-                            ContentBadge(symbol: "text.bubble.fill", label: "Note")
-                        }
-                        if let proof = request.proof {
-                            ContentBadge(symbol: proof.kind == .video ? "video.fill" : "photo.fill",
-                                         label: proof.kind == .video ? "Video" : "Photo")
-                        }
-                    }
-                    .padding(.top, 3)
                 }
                 Spacer()
                 // Saying no = sliming them out.
@@ -159,23 +148,6 @@ private struct RequestCard: View {
     }
 }
 
-/// A tiny label in the card header saying what the friend sent: "Note", "Photo", "Video".
-private struct ContentBadge: View {
-    let symbol: String
-    let label: String
-
-    var body: some View {
-        Label(label, systemImage: symbol)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(Theme.onColor)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Theme.lime, in: Capsule())
-            .labelStyle(.titleAndIcon)
-            .fixedSize()
-    }
-}
-
 /// What the friend sent, as one message bubble in their color: an optional
 /// photo or video thumbnail (tap to open) and an optional note. Either can be
 /// on its own.
@@ -237,39 +209,64 @@ private struct RequestMessage: View {
     }
 }
 
+/// An answered request, shown as a tiny conversation: their request, then your
+/// answer as a reply (with your note and any photo or video).
 private struct HistoryRow: View {
     let request: UnlockRequest
     @Environment(AppModel.self) private var model
     @State private var viewing: Attachment?
 
     var body: some View {
-        HStack(spacing: 12) {
-            if let p = model.person(request.from) { Avatar(person: p, size: 34) }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.person(request.from)?.firstName ?? "Someone")
-                    .font(.subheadline.weight(.medium))
-                Text(request.note.isEmpty ? request.appName : "\(request.appName) · “\(request.note)”")
-                    .font(.caption)
+        let person = model.person(request.from)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if let person { Avatar(person: person, size: 30) }
+                Text("\(person?.firstName ?? "Someone") asked for \(request.minutes) min")
+                    .font(.subheadline.weight(.semibold))
+                Text("· \(request.appName)")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
-            Spacer()
-            if let media = request.answerMedia {
-                Button { viewing = media } label: { AttachmentThumb(attachment: media, size: 32) }
-                    .buttonStyle(.pressable)
+            if !request.reason.isEmpty || request.proof != nil {
+                RequestMessage(text: request.reason, attachment: request.proof,
+                               color: person?.color ?? Theme.accent) { viewing = $0 }
+                    .padding(.leading, 40)
             }
-            Text(outcome)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            // Your answer, as a reply on the right.
+            HStack {
+                Spacer(minLength: 50)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Label(outcome, systemImage: isSlimed ? "drop.fill" : "checkmark.circle.fill")
+                        .font(.footnote.weight(.bold))
+                    if let media = request.answerMedia {
+                        Button { viewing = media } label: { AttachmentThumb(attachment: media, size: 56) }
+                            .buttonStyle(.pressable)
+                    }
+                    if !request.note.isEmpty {
+                        Text("“\(request.note)”").font(.subheadline)
+                    }
+                }
+                .foregroundStyle(Theme.onColor)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isSlimed ? Theme.lime : Theme.accent,
+                            in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18,
+                                                       bottomTrailingRadius: 4, topTrailingRadius: 18,
+                                                       style: .continuous))
+            }
         }
-        .padding(.vertical, 4)
+        .padding(14)
+        .background(Theme.fill.opacity(0.5), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .fullScreenCover(item: $viewing) { MediaViewer(attachment: $0) }
     }
 
+    private var isSlimed: Bool { request.state == .denied }
+
     private var outcome: String {
         switch request.state {
-        case .approved(let m): "Gave \(m) min"
-        case .denied: "Slimed out"
+        case .approved(let m): "You gave \(m) min"
+        case .denied: "You slimed them out"
         case .pending: ""
         }
     }

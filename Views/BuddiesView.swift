@@ -31,11 +31,6 @@ struct BuddiesView: View {
                     ForEach(family) { r in row(r).appear(6) }
                 }
 
-                // Friends who aren't on Gloop yet get a join link.
-                if let account = model.account {
-                    SectionLabel(text: "Not on Gloop yet?").padding(.top, 18).appear(7)
-                    InviteCard(account: account, showsCode: false).appear(8)
-                }
 
             }
             .padding(.horizontal, 24)
@@ -86,7 +81,7 @@ private struct BuddyRow: View {
                     } else if rel.leavingAt != nil {
                         Label("Ending within 24 hours", systemImage: "hourglass")
                     } else if let lastMessage {
-                        Text(lastMessage.text).lineLimit(1)
+                        Text(lastMessage.preview).lineLimit(1)
                     } else {
                         Text(rel.relation.label)
                     }
@@ -392,12 +387,13 @@ private struct Bubble: View {
     let mine: Bool
     let color: Color
     let onLike: () -> Void
+    @State private var viewing: Attachment?
 
     var body: some View {
         HStack {
             if mine { Spacer(minLength: 60) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
-                Text(message.text)
+                content
                     .padding(.horizontal, 15)
                     .padding(.vertical, 10)
                     .foregroundStyle(mine ? Theme.onColor : Theme.ink)
@@ -425,6 +421,62 @@ private struct Bubble: View {
         }
         .animation(Motion.bouncy, value: message.liked)
         .sensoryFeedback(.impact(weight: .light), trigger: message.liked)
+        .fullScreenCover(item: $viewing) { MediaViewer(attachment: $0) }
+    }
+
+    /// Plain text, or for requests and answers: a small header, the photo or
+    /// video (tap to open), and the note.
+    @ViewBuilder
+    private var content: some View {
+        if message.event == nil && message.media == nil {
+            Text(message.text)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                if let event = message.event {
+                    Label(headline(event), systemImage: symbol(event))
+                        .font(.footnote.weight(.bold))
+                }
+                if let media = message.media {
+                    Button { viewing = media } label: {
+                        Image(uiImage: media.thumbnail)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 150, height: 110)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                if media.kind == .video {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 30, height: 30)
+                                        .background(.black.opacity(0.45), in: Circle())
+                                }
+                            }
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel(media.kind == .video ? "Video, tap to play" : "Photo, tap to view")
+                }
+                if !message.text.isEmpty {
+                    Text(message.event == nil ? message.text : "“\(message.text)”")
+                }
+            }
+        }
+    }
+
+    private func headline(_ e: ChatEvent) -> String {
+        switch e {
+        case .request(let app, let minutes): "Asked for \(minutes) min on \(app)"
+        case .gave(let minutes, let app): "Gave \(minutes) min on \(app)"
+        case .slimed(let app): "Slimed out of \(app)"
+        }
+    }
+
+    private func symbol(_ e: ChatEvent) -> String {
+        switch e {
+        case .request: "clock.fill"
+        case .gave: "checkmark.circle.fill"
+        case .slimed: "drop.fill"
+        }
     }
 }
 

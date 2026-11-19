@@ -126,6 +126,32 @@ struct Message: Identifiable, Equatable {
     let text: String
     let date: Date
     var liked = false
+    /// A photo or video sent along with the message.
+    var media: Attachment? = nil
+    /// Set when this message is a request for time or an answer to one,
+    /// so chats show the whole back-and-forth.
+    var event: ChatEvent? = nil
+
+    /// One line for previews like the Crew list.
+    var preview: String {
+        switch event {
+        case .request(let app, let minutes):
+            return text.isEmpty ? "Asked for \(minutes) min on \(app)" : text
+        case .gave(let minutes, _):
+            return text.isEmpty ? "Gave \(minutes) min" : text
+        case .slimed(let app):
+            return text.isEmpty ? "Slimed out of \(app)" : text
+        case nil:
+            return text.isEmpty ? (media == nil ? "" : "Sent a photo") : text
+        }
+    }
+}
+
+/// A request for more time, or the answer to one, shown inside a chat.
+enum ChatEvent: Equatable {
+    case request(app: String, minutes: Int)
+    case gave(minutes: Int, app: String)
+    case slimed(app: String)
 }
 
 struct Stats: Hashable {

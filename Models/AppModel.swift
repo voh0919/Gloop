@@ -97,6 +97,16 @@ final class AppModel {
             nora.id: Stats(streak: 12, improvement: 8, minutesToday: 25, limitToday: 60),
             leo.id: Stats(streak: 4, improvement: 18, minutesToday: 52, limitToday: 90),
         ]
+
+        // Every request (and answer) also lives in that friend's chat.
+        for r in requests {
+            messages.append(Message(from: r.from, to: self.me.id, text: r.reason, date: r.date,
+                                    media: r.proof, event: .request(app: r.appName, minutes: r.minutes)))
+            if r.state == .denied {
+                messages.append(Message(from: self.me.id, to: r.from, text: "", date: r.date.addingTimeInterval(90),
+                                        event: .slimed(app: r.appName)))
+            }
+        }
     }
 
     // MARK: Account
@@ -194,6 +204,10 @@ final class AppModel {
         requests[i].state = minutes.map { .approved($0) } ?? .denied
         requests[i].note = note.trimmingCharacters(in: .whitespacesAndNewlines)
         requests[i].answerMedia = media
+        messages.append(Message(from: me.id, to: request.from, text: requests[i].note, date: .now,
+                                media: media,
+                                event: minutes.map { .gave(minutes: $0, app: request.appName) }
+                                    ?? .slimed(app: request.appName)))
         let name = person(request.from)?.firstName ?? "them"
         showToast(minutes.map { "Gave \(name) \($0) min" } ?? "Splat! Slimed \(name) out")
         scheduleDemoRequestIfIdle()
@@ -220,6 +234,8 @@ final class AppModel {
                                        symbol: "photo.fill", progress: .random(in: 0.3...0.9))
             requests.insert(UnlockRequest(from: who.id, appName: pick.0, minutes: pick.1,
                                           reason: pick.2, date: .now, proof: proof), at: 0)
+            messages.append(Message(from: who.id, to: me.id, text: pick.2, date: .now, media: proof,
+                                    event: .request(app: pick.0, minutes: pick.1)))
             showToast("\(who.person.firstName) is asking for time")
         }
     }
@@ -228,7 +244,9 @@ final class AppModel {
 
     /// Simulates asking my keyholders. Doesn't change any state, so the
     /// block screen can cancel safely.
-    func askForTime(minutes: Int) async -> (approved: Bool, by: Person?, note: String) {
+    func askForTime(minutes: Int, app: String = "", reason: String = "",
+                    proof: Attachment? = nil) async -> (approved: Bool, by: Person?, note: String) {
+        let askedAt = Date.now
         try? await Task.sleep(for: .seconds(2.8))
         let by = myKeyholders.randomElement()
         // Demo switches: launch with -alwaysDeny or -alwaysApprove to force an answer.
@@ -244,7 +262,14 @@ final class AppModel {
         let notes = approved
             ? ["go for it", "ok but just this once", "you earned it", "enjoy, then back to work"]
             : ["finish your essay first", "go touch some grass", "nope. you've got this", "ask me again after dinner"]
-        return (approved, by, notes.randomElement()!)
+        let note = notes.randomElement()!
+        if let by, !app.isEmpty {
+            messages.append(Message(from: me.id, to: by.id, text: reason.trimmingCharacters(in: .whitespaces),
+                                    date: askedAt, media: proof, event: .request(app: app, minutes: minutes)))
+            messages.append(Message(from: by.id, to: me.id, text: note, date: .now,
+                                    event: approved ? .gave(minutes: minutes, app: app) : .slimed(app: app)))
+        }
+        return (approved, by, note)
     }
 
     // MARK: Limited apps
@@ -368,7 +393,7 @@ final class AppModel {
 
     /// Nudges friends sent me, newest first.
     var inbox: [Message] {
-        messages.filter { $0.to == me.id }.sorted { $0.date > $1.date }
+        messages.filter { $0.to == me.id && $0.event == nil }.sorted { $0.date > $1.date }
     }
 
     func sendMessage(_ text: String, to person: Person) {
@@ -407,8 +432,8 @@ final class AppModel {
         slimed.insert(person.id)
         slimeEvent = SlimeEvent(person: person, app: app, byMe: true)
         if !fromRequest {
-            messages.append(Message(from: me.id, to: person.id,
-                                    text: "slimed you out of \(app)", date: .now))
+            messages.append(Message(from: me.id, to: person.id, text: "", date: .now,
+                                    event: .slimed(app: app)))
             // Simulate their (grudging) reply.
             Task {
                 try? await Task.sleep(for: .seconds(5))

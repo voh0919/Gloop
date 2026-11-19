@@ -214,7 +214,7 @@ struct BlockScreenView: View {
     private func ask() {
         phase = .asking
         Task { @MainActor in
-            let result = await model.askForTime(minutes: minutes)
+            let result = await model.askForTime(minutes: minutes, app: app.name, reason: reason, proof: proof)
             guard phase == .asking else { return } // cancelled meanwhile
             if result.approved {
                 withAnimation(Motion.bouncy) { phase = .approved(result.by, result.note) }
