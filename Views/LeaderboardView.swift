@@ -247,8 +247,7 @@ private struct MetricPicker: View {
                         .padding(.vertical, 10)
                         .background {
                             if metric == m {
-                                BlobShape(phase: 0.8, wobble: 0.05, lobes: 4)
-                                    .fill(Theme.accent.gradient)
+                                Capsule().fill(Theme.accent)
                                     .matchedGeometryEffect(id: "metric", in: ns)
                             }
                         }
@@ -258,7 +257,7 @@ private struct MetricPicker: View {
         }
         .padding(4)
         .background(Theme.fill, in: Capsule())
-        .animation(Motion.bouncy, value: metric)
+        .animation(Motion.snappy, value: metric)
         .sensoryFeedback(.selection, trigger: metric)
     }
 }
