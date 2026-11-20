@@ -27,10 +27,19 @@ happens in a website, signed in as you. Supabase's free tier is enough.
 
 ## 4. Email codes (sign-up confirmation and password reset)
 
+> **Current state:** this project has **Confirm email** turned off and
+> `SupabaseConfig.emailCodes = false` (which hides **Forgot password?**),
+> because Supabase only lets you edit email templates after adding your own
+> email service (SMTP). Do the steps below, then set `emailCodes = true` and
+> turn **Confirm email** back on.
+
+
 Gloop asks for a 6-digit code instead of a link, so emails must include the code:
 
-1. Open **Authentication** → **Email Templates**.
-2. In **Confirm signup** and in **Reset password**, add a line such as
+1. Add an email service under **Authentication** → **Emails** → **SMTP Settings**
+   (for example Resend or Postmark; both have free tiers).
+2. Open **Authentication** → **Emails** → **Templates**.
+3. In **Confirm sign up** and in **Reset password**, add a line such as
    `Your Gloop code is {{ .Token }}` and save.
 
 For quick testing you can instead turn off **Confirm email** under

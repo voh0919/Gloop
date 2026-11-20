@@ -236,7 +236,7 @@ private struct LogInView: View {
                 HStack {
                     ErrorLine(text: task.error, shakes: task.shakes)
                     Spacer(minLength: 8)
-                    if AuthService.usesServer {
+                    if AuthService.usesServer && SupabaseConfig.emailCodes {
                         Button("Forgot password?") { onForgot(email) }
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(Theme.ocean)
