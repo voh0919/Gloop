@@ -38,8 +38,9 @@ final class AppModel {
         // Demo switch: launch with -resetAccount to start over as a brand-new user.
         if ProcessInfo.processInfo.arguments.contains("-resetAccount") {
             AccountStore.deleteAccount()
+            AccountStore.cachedRemote = nil
         }
-        let signedIn = AccountStore.isLoggedIn ? AccountStore.account : nil
+        let signedIn = AuthService.restoredAccount
         account = signedIn
         let me = Person(signedIn?.name ?? "You", color: 2)
         let sam = Person("Sam Rivera", color: 0)
@@ -111,38 +112,71 @@ final class AppModel {
 
     // MARK: Account
 
-    func createAccount(name: String, email: String, password: String) throws {
-        let a = try AccountStore.createAccount(name: name, email: email, password: password)
-        me.name = a.name
-        account = a
+    /// Signs up. Returns false when the server emailed a code to confirm first.
+    func createAccount(name: String, email: String, password: String) async throws -> Bool {
+        switch try await AuthService.signUp(name: name, email: email, password: password) {
+        case .signedIn(let a): signedIn(a); return true
+        case .confirmEmail: return false
+        }
     }
 
-    func logIn(email: String, password: String) throws {
-        let a = try AccountStore.logIn(email: email, password: password)
-        me.name = a.name
-        account = a
+    func confirmEmail(_ email: String, code: String) async throws {
+        signedIn(try await AuthService.confirmEmail(email, code: code))
+    }
+
+    func logIn(email: String, password: String) async throws {
+        signedIn(try await AuthService.logIn(email: email, password: password))
+    }
+
+    func signInWithGoogle() async throws {
+        signedIn(try await AuthService.signInWithGoogle())
+    }
+
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws {
+        signedIn(try await AuthService.signInWithApple(idToken: idToken, nonce: nonce, name: name))
+    }
+
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        signedIn(try await AuthService.resetPassword(email: email, code: code, newPassword: newPassword))
+        showToast("Password changed")
     }
 
     func logOut() {
-        AccountStore.logOut()
         account = nil
+        Task { await AuthService.logOut() }
     }
 
-    func updateName(_ name: String) throws {
-        let a = try AccountStore.updateName(name)
+    func updateName(_ name: String) async throws {
+        let a = try await AuthService.updateName(name)
         me.name = a.name
         account = a
         showToast("Name updated")
     }
 
-    func changePassword(current: String, new: String) throws {
-        try AccountStore.changePassword(current: current, new: new)
+    func changePassword(current: String, new: String) async throws {
+        try await AuthService.changePassword(email: account?.email ?? "", current: current, new: new)
         showToast("Password changed")
     }
 
-    func deleteAccount() {
-        AccountStore.deleteAccount()
+    func deleteAccount() async throws {
+        try await AuthService.deleteAccount()
         account = nil
+    }
+
+    /// Checks the saved session with the server; logs out if it has ended.
+    func refreshAccount() async {
+        guard AuthService.usesServer, account != nil else { return }
+        if let a = await AuthService.refresh() {
+            me.name = a.name
+            account = a
+        } else {
+            account = nil
+        }
+    }
+
+    private func signedIn(_ a: Account) {
+        me.name = a.name
+        account = a
     }
 
     // MARK: Lookups

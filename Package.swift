@@ -32,10 +32,18 @@ let package = Package(
             ]
         )
     ],
+    dependencies: [
+        // Accounts and data live in Supabase (see Services/SupabaseConfig.swift).
+        .package(url: "https://github.com/supabase/supabase-swift.git", "2.0.0"..<"3.0.0")
+    ],
     targets: [
         .executableTarget(
             name: "AppModule",
-            path: "."
+            dependencies: [
+                .product(name: "Supabase", package: "supabase-swift")
+            ],
+            path: ".",
+            exclude: ["supabase"]
         )
     ]
 )

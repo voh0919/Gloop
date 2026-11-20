@@ -154,11 +154,16 @@ extension ButtonStyle where Self == PressableStyle {
 struct PrimaryButton: View {
     let title: String
     var enabled = true
+    /// Shows a spinner instead of the title while something's loading.
+    var busy = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            ZStack {
+                Text(title).opacity(busy ? 0 : 1)
+                if busy { ProgressView().tint(Theme.onColor) }
+            }
                 .font(.headline)
                 .contentTransition(.opacity)
                 .frame(maxWidth: .infinity)
@@ -167,8 +172,9 @@ struct PrimaryButton: View {
                 .background(Theme.accent.opacity(enabled ? 1 : 0.3), in: Capsule())
         }
         .buttonStyle(.pressable)
-        .disabled(!enabled)
+        .disabled(!enabled || busy)
         .animation(Motion.snappy, value: enabled)
+        .animation(Motion.snappy, value: busy)
     }
 }
 

@@ -29,5 +29,7 @@ struct RootView: View {
             }
         }
         .animation(Motion.smooth, value: model.isLoggedIn)
+        // With the server connected, check the saved session is still good.
+        .task { await model.refreshAccount() }
     }
 }

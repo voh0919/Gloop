@@ -40,19 +40,31 @@ demo, add `-alwaysDeny` or `-alwaysApprove` as a launch argument
 ### Accounts
 
 Logged out, Gloop shows a welcome screen. **Create account** plays the three
-intro slides and then asks for name, email and password; **I already have an
-account** goes straight to log in (no slides). You stay logged in between
-launches. Settings shows your account, lets you edit your name, change your
-password, log out or delete the account, and has your friend code and join link.
+intro slides and then offers **Continue with Apple**, **Continue with Google**,
+or name, email and password; **I already have an account** goes straight to log
+in (no slides), with the same Apple and Google buttons and **Forgot password?**.
+You stay logged in between launches. Settings shows your account (and whether
+you signed in with Google or Apple), lets you edit your name, change your
+password (email accounts only), log out or delete the account, and has your
+invite code and join link.
 
-Accounts are stored on this phone only for now (no server yet). The password is
-salted and hashed (SHA-256) and only the hash is kept, in the Keychain. Join
-links use the placeholder `https://gloop.example/join/<code>` (a reserved
+**With the server** (Supabase, set up in `supabase/SETUP.md`), accounts live
+online: email confirmation and password reset use 6-digit codes emailed to you,
+and a deleted account is deleted on the server. `Services/AuthService.swift`
+does all of it; `Services/SupabaseConfig.swift` holds the project URL and key.
+
+**Without the server** (both values in `SupabaseConfig` empty), Gloop falls
+back to accounts stored on this phone only, so it still runs in the Simulator.
+The password is salted and hashed (SHA-256) and only the hash is kept, in the
+Keychain. Apple, Google and Forgot password say they need the server.
+
+Join links use the placeholder `https://gloop.example/join/<code>` (a reserved
 address that never belongs to anyone; note that gloop.app is a real, unrelated
 site). Change `Account.joinBase` once Gloop has its own domain.
 
-For testing, a sample account: name `Alex Kim`, email `alex@example.com`,
-password `jellybean42`. Launch with `-resetAccount` to start over as a new user.
+For testing without the server, a sample account: name `Alex Kim`, email
+`alex@example.com`, password `jellybean42`. Launch with `-resetAccount` to start
+over as a new user.
 
 ## Design rules
 
@@ -86,3 +98,5 @@ The app icon lives in `Assets.xcassets/AppIcon.appiconset` (1024×1024).
 - `Views/`: one file per screen
 - `Services/ScreenTimeService.swift`: the start of the real Screen Time
   integration and the steps still needed for it
+- `Services/AuthService.swift`, `SupabaseConfig.swift`, `AccountStore.swift`: sign-in
+- `supabase/`: the database setup script and server setup steps

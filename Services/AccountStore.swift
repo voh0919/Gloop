@@ -9,6 +9,10 @@ struct Account: Codable, Equatable {
     let createdAt: Date
     /// Friends join with this code; it's also the end of your join link.
     let referralCode: String
+    /// How they signed in: "email", "google" or "apple". Nil for older local accounts.
+    var provider: String? = nil
+
+    var usesPassword: Bool { provider == nil || provider == "email" }
 
     /// Where join links point. A placeholder until Gloop has its own domain.
     /// `.example` is reserved and never belongs to anyone, so a placeholder link
@@ -21,6 +25,8 @@ struct Account: Codable, Equatable {
 
 enum AccountError: LocalizedError {
     case invalidName, invalidEmail, weakPassword, noAccount, wrongPassword
+    case emailTaken, notConfirmed, wrongCode, needsServer, appleNotSetUp, offline
+    case server(String)
 
     var errorDescription: String? {
         switch self {
@@ -28,7 +34,14 @@ enum AccountError: LocalizedError {
         case .invalidEmail: "That doesn't look like an email address."
         case .weakPassword: "Use at least 8 characters for your password."
         case .noAccount: "No account with that email on this phone. Create one instead?"
-        case .wrongPassword: "That password isn't right."
+        case .wrongPassword: "That email and password don't match."
+        case .emailTaken: "There's already an account with that email. Log in instead?"
+        case .notConfirmed: "Confirm your email first. We sent you a code."
+        case .wrongCode: "That code didn't work. Check it, or send a new one."
+        case .needsServer: "This needs Gloop's server, which isn't connected yet."
+        case .appleNotSetUp: "Sign in with Apple isn't set up for this build yet."
+        case .offline: "You're offline. Check your connection and try again."
+        case .server(let message): message
         }
     }
 }
@@ -43,6 +56,26 @@ enum AccountStore {
     private static let accountKey = "gloop.account"
     private static let sessionKey = "gloop.loggedIn"
     private static let keychainService = "app.gloop.account"
+
+    // MARK: Server account cache
+
+    /// With the server connected, the account is cached here so the app opens
+    /// straight to your stuff while the session refreshes in the background.
+    private static let remoteKey = "gloop.remoteAccount"
+
+    static var cachedRemote: Account? {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: remoteKey) else { return nil }
+            return try? JSONDecoder().decode(Account.self, from: data)
+        }
+        set {
+            if let newValue, let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: remoteKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: remoteKey)
+            }
+        }
+    }
 
     // MARK: Session
 
@@ -127,7 +160,7 @@ enum AccountStore {
     }
 
     /// e.g. "ALEX-7K2Q": a readable first name plus four random characters.
-    private static func makeReferralCode(for name: String) -> String {
+    static func makeReferralCode(for name: String) -> String {
         let first = name.split(separator: " ").first.map(String.init) ?? "GLOOP"
         let letters = first.uppercased().filter { $0.isLetter }.prefix(6)
         let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")

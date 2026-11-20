@@ -32,8 +32,10 @@ struct SettingsView: View {
                     SectionLabel(text: "Account").padding(.top, 14)
                     VStack(spacing: 0) {
                         SettingsRow(symbol: "pencil", title: "Edit name") { editingName = true }
-                        Divider().padding(.leading, 52)
-                        SettingsRow(symbol: "lock.rotation", title: "Change password") { changingPassword = true }
+                        if account.usesPassword {
+                            Divider().padding(.leading, 52)
+                            SettingsRow(symbol: "lock.rotation", title: "Change password") { changingPassword = true }
+                        }
                         Divider().padding(.leading, 52)
                         SettingsRow(symbol: "rectangle.portrait.and.arrow.right", title: "Log out") {
                             confirmingLogOut = true
@@ -86,11 +88,19 @@ struct SettingsView: View {
         }
         .confirmationDialog("Delete your account?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete account", role: .destructive) {
-                dismiss()
-                model.deleteAccount()
+                Task {
+                    do {
+                        try await model.deleteAccount()
+                        dismiss()
+                    } catch {
+                        model.showToast(error.localizedDescription)
+                    }
+                }
             }
         } message: {
-            Text("This removes your account from this phone and can't be undone.")
+            Text(AuthService.usesServer
+                 ? "This permanently deletes your Gloop account. It can't be undone."
+                 : "This removes your account from this phone and can't be undone.")
         }
     }
 
@@ -100,6 +110,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(account.name).font(.title3.weight(.bold))
                 Text(account.email).font(.subheadline).foregroundStyle(.secondary)
+                if let via = signInLabel(account) {
+                    Text(via).font(.caption.weight(.semibold)).foregroundStyle(Theme.ocean)
+                }
                 Text("Member since \(account.createdAt.formatted(.dateTime.month(.wide).year()))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -108,6 +121,14 @@ struct SettingsView: View {
         }
         .padding(16)
         .background(Theme.lime.opacity(0.45), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func signInLabel(_ account: Account) -> String? {
+        switch account.provider {
+        case "google": "Signed in with Google"
+        case "apple": "Signed in with Apple"
+        default: nil
+        }
     }
 
     private func names(_ people: [Person]) -> String {
@@ -217,23 +238,20 @@ private struct EditNameSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State var current: String
-    @State private var error: String?
-    @State private var shakes = 0
+    @State private var task = AuthTask()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Edit name").font(.title2.weight(.bold))
             AuthField(symbol: "person.fill", placeholder: "Your name", text: $current)
                 .textContentType(.name)
-            ErrorLine(text: error, shakes: shakes)
+            ErrorLine(text: task.error, shakes: task.shakes)
             Spacer()
-            PrimaryButton(title: "Save", enabled: !current.trimmingCharacters(in: .whitespaces).isEmpty) {
-                do {
-                    try model.updateName(current)
+            PrimaryButton(title: "Save", enabled: !current.trimmingCharacters(in: .whitespaces).isEmpty,
+                          busy: task.busy) {
+                task.run {
+                    try await model.updateName(current)
                     dismiss()
-                } catch {
-                    self.error = error.localizedDescription
-                    withAnimation(.linear(duration: 0.4)) { shakes += 1 }
                 }
             }
         }
@@ -246,8 +264,7 @@ private struct ChangePasswordSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var current = ""
     @State private var new = ""
-    @State private var error: String?
-    @State private var shakes = 0
+    @State private var task = AuthTask()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -256,15 +273,13 @@ private struct ChangePasswordSheet: View {
                 .textContentType(.password)
             AuthField(symbol: "lock.rotation", placeholder: "New password (8+ characters)", text: $new, secure: true)
                 .textContentType(.newPassword)
-            ErrorLine(text: error, shakes: shakes)
+            ErrorLine(text: task.error, shakes: task.shakes)
             Spacer()
-            PrimaryButton(title: "Change password", enabled: !current.isEmpty && !new.isEmpty) {
-                do {
-                    try model.changePassword(current: current, new: new)
+            PrimaryButton(title: "Change password", enabled: !current.isEmpty && !new.isEmpty,
+                          busy: task.busy) {
+                task.run {
+                    try await model.changePassword(current: current, new: new)
                     dismiss()
-                } catch {
-                    self.error = error.localizedDescription
-                    withAnimation(.linear(duration: 0.4)) { shakes += 1 }
                 }
             }
         }
