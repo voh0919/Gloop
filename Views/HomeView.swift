@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var showingSettings = false
     @State private var showingApps = false
     @State private var showingBreakdown = false
+    @Namespace private var blobSpace
 
     var body: some View {
         ScrollView {
@@ -17,35 +18,30 @@ struct HomeView: View {
                 }
                 .appear(0)
 
-                VStack(spacing: 14) {
-                    TimeBlob(used: model.totalUsed, limit: model.totalLimit) {
-                        withAnimation(Motion.bouncy) { showingBreakdown.toggle() }
-                    }
-                    .frame(width: 250, height: 250)
-                    .padding(.vertical, 4)
-
-                    // A small hint that the blob opens a per-app breakdown.
-                    if !showingBreakdown {
-                        Button {
-                            withAnimation(Motion.bouncy) { showingBreakdown = true }
-                        } label: {
-                            Label("Tap the blob to see each app", systemImage: "hand.tap.fill")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Theme.fill, in: Capsule())
-                        }
-                        .buttonStyle(.pressable)
-                        .padding(.top, -10)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                    }
-
+                VStack(spacing: 6) {
                     if showingBreakdown {
-                        TimeBreakdown(apps: model.apps, left: model.totalLimit - model.totalUsed) {
-                            withAnimation(Motion.smooth) { showingBreakdown = false }
+                        // The blob swells into a bigger blob holding the per-app breakdown.
+                        BigTimeBlob(apps: model.apps, used: model.totalUsed, limit: model.totalLimit) {
+                            withAnimation(Motion.bouncy) { showingBreakdown = false }
                         }
-                        .transition(.jellyPop)
+                        .matchedGeometryEffect(id: "timeblob", in: blobSpace)
+                        .transition(.opacity)
+                    } else {
+                        TimeBlob(used: model.totalUsed, limit: model.totalLimit) {
+                            withAnimation(Motion.bouncy) { showingBreakdown = true }
+                        }
+                        .matchedGeometryEffect(id: "timeblob", in: blobSpace)
+                        .frame(width: 250, height: 250)
+                        .padding(.vertical, 4)
+                        .transition(.opacity)
+
+                        // A quiet hint that the blob can be tapped.
+                        Image(systemName: "hand.tap")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, -8)
+                            .accessibilityHidden(true)
+                            .transition(.opacity)
                     }
                 }
                 .appear(1)
@@ -128,78 +124,86 @@ struct HomeView: View {
     }
 }
 
-/// What makes up the blob's number: each limited app and what it has left.
-/// Opens when you tap the blob; tap it to fold it away.
-private struct TimeBreakdown: View {
+/// The Today blob, swollen up to show where its minutes are: each limited app
+/// and what it has left. Tap it to shrink it back down.
+private struct BigTimeBlob: View {
     let apps: [LimitedApp]
-    let left: Int
+    let used: Int
+    let limit: Int
     let onClose: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var left: Int { max(0, limit - used) }
+    private var leftFraction: Double { 1 - min(1, Double(used) / Double(max(limit, 1))) }
+    // Same colors as the small blob, so it reads as the same creature.
+    private var color: Color { leftFraction > 0.5 ? Theme.moss : leftFraction > 0.2 ? Theme.teal : Theme.deep }
+    private var ink: Color { leftFraction > 0.5 ? Theme.onColor : .white }
 
     private func minutesLeft(_ a: LimitedApp) -> Int { max(0, a.dailyMinutes - a.usedMinutes) }
     private var sorted: [LimitedApp] { apps.sorted { minutesLeft($0) > minutesLeft($1) } }
 
     var body: some View {
         Button(action: onClose) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Your \(left) minutes, app by app")
-                        .font(.subheadline.weight(.bold))
-                    Spacer()
-                    Image(systemName: "chevron.up")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
+            TimelineView(.animation(paused: reduceMotion)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    BlobShape(phase: t * 0.6 + 2, wobble: 0.035, lobes: 3)
+                        .fill(Theme.lime.opacity(0.55))
+                        .padding(-12)
+                    BlobShape(phase: t * 0.9, wobble: 0.03, lobes: 4)
+                        .fill(color.gradient)
+                    Ellipse()
+                        .fill(.white.opacity(0.4))
+                        .frame(width: 54, height: 22)
+                        .rotationEffect(.degrees(-25))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(.leading, 46)
+                        .padding(.top, 40)
+
+                    VStack(spacing: 12) {
+                        JellyEyes(time: t, size: 12, sleepy: leftFraction <= 0.2, reduceMotion: reduceMotion)
+                        Text("\(left) min left")
+                            .font(.system(.title2, design: .rounded).weight(.heavy))
+                        VStack(spacing: 8) {
+                            ForEach(sorted) { app in row(app) }
+                        }
+                        Text("Each app keeps its own limit")
+                            .font(.caption)
+                            .opacity(0.75)
+                    }
+                    .foregroundStyle(ink)
+                    .padding(.horizontal, 48)
+                    .padding(.vertical, 50)
                 }
-                if apps.isEmpty {
-                    Text("No apps limited yet.").font(.footnote).foregroundStyle(.secondary)
-                }
-                ForEach(Array(sorted.enumerated()), id: \.element.id) { i, app in
-                    row(app).appear(i)
-                }
-                Text("Each app keeps its own limit, so leftover time doesn't move between apps.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.fill.opacity(0.7), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.line, lineWidth: 0.5))
         }
         .buttonStyle(.pressable)
-        .foregroundStyle(Theme.ink)
-        .accessibilityHint("Hides the breakdown")
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Shrinks the blob back down")
     }
 
     private func row(_ app: LimitedApp) -> some View {
         let unlocked = app.isUnlocked()
         let locked = app.isOver && !unlocked
-        return HStack(spacing: 12) {
+        return HStack(spacing: 10) {
             Image(systemName: app.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.onColor)
-                .frame(width: 30, height: 30)
-                .background(locked ? Theme.fill : Theme.accentSoft,
-                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 26, height: 26)
+                .background(.white.opacity(locked ? 0.12 : 0.25), in: Circle())
             Text(app.name).font(.subheadline.weight(.semibold))
-            Spacer()
-            if locked {
-                Label("Locked", systemImage: "lock.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-            } else if unlocked {
-                Label("Unlocked", systemImage: "lock.open.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Theme.ocean)
-            } else {
-                Text("\(minutesLeft(app)) min left")
-                    .font(.caption.weight(.bold).monospacedDigit())
-                    .foregroundStyle(Theme.onColor)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Theme.lime, in: Capsule())
+            Spacer(minLength: 6)
+            Group {
+                if locked { Label("Locked", systemImage: "lock.fill") }
+                else if unlocked { Label("Open", systemImage: "lock.open.fill") }
+                else { Text("\(minutesLeft(app)) min") }
             }
+            .font(.caption.weight(.bold).monospacedDigit())
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(.white.opacity(locked ? 0.12 : 0.25), in: Capsule())
         }
+        .opacity(locked ? 0.7 : 1)
     }
 }
 
