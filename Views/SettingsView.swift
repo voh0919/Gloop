@@ -26,7 +26,7 @@ struct SettingsView: View {
                 if let account = model.account {
                     accountCard(account)
 
-                    SectionLabel(text: "Invite friends").padding(.top, 14)
+                    SectionLabel(text: "Invite your crew").padding(.top, 14)
                     InviteCard(account: account)
 
                     SectionLabel(text: "Account").padding(.top, 14)
@@ -117,10 +117,10 @@ struct SettingsView: View {
     }
 }
 
-/// Your friend code and join link, with one-tap share and copy.
+/// Your invite code and join link, with one-tap share and copy.
 struct InviteCard: View {
     let account: Account
-    /// Settings shows your friend code; the Crew page keeps it simpler.
+    /// Settings shows your invite code; the Crew page keeps it simpler.
     var showsCode = true
     @State private var copied = false
 
@@ -134,7 +134,7 @@ struct InviteCard: View {
                 GooDollop(drip: 0.7).frame(width: 40, height: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Bring your crew").font(.body.weight(.bold))
-                    Text("Friends who join with your link are added to your crew.")
+                    Text("Anyone who joins with your link is added to your crew.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -142,7 +142,7 @@ struct InviteCard: View {
             HStack {
                 if showsCode {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Your friend code").font(.caption).foregroundStyle(.secondary)
+                        Text("Your invite code").font(.caption).foregroundStyle(.secondary)
                         Text(account.referralCode)
                             .font(.system(.title3, design: .monospaced).weight(.bold))
                     }

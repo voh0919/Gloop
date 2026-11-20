@@ -6,12 +6,12 @@ struct OnboardingView: View {
     @State private var page = 0
 
     private let pages: [(title: String, body: String)] = [
-        ("Your friends hold the key.",
-         "Pick a few people you trust to keep your most distracting apps locked."),
+        ("Your people hold the key.",
+         "Friends, siblings, a parent: pick a few people you trust to keep your most distracting apps locked."),
         ("Ask, don't scroll.",
          "Out of time? Ask your crew. They answer with a tap, and maybe a pep talk."),
         ("Keep each other honest.",
-         "Nudge friends, cheer their streaks, and always with both of you agreeing."),
+         "Nudge your crew, cheer their streaks, and always with both of you agreeing."),
     ]
 
     var body: some View {

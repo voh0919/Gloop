@@ -41,7 +41,7 @@ private struct WelcomeView: View {
                 .font(.system(size: 52, weight: .heavy, design: .rounded))
                 .padding(.top, 18)
                 .appear(1)
-            Text("Your friends hold the key to your apps.")
+            Text("Your friends and family hold the key to your apps.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.top, 6)

@@ -293,7 +293,7 @@ private struct RequestsTile: View {
     var body: some View {
         ShortcutTile(title: "Requests",
                      detail: requests.isEmpty ? "All caught up" : "\(requests.count) waiting",
-                     highlight: requests.isEmpty ? nil : "Friends need you",
+                     highlight: requests.isEmpty ? nil : "Your crew needs you",
                      action: action) {
             if requests.isEmpty {
                 Image(systemName: "checkmark")
