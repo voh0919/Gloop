@@ -6,6 +6,7 @@ struct HomeView: View {
     @State private var openThread: Person?
     @State private var showingSettings = false
     @State private var showingApps = false
+    @State private var showingBreakdown = false
 
     var body: some View {
         ScrollView {
@@ -16,10 +17,21 @@ struct HomeView: View {
                 }
                 .appear(0)
 
-                TimeBlob(used: model.totalUsed, limit: model.totalLimit)
+                VStack(spacing: 14) {
+                    TimeBlob(used: model.totalUsed, limit: model.totalLimit) {
+                        withAnimation(Motion.bouncy) { showingBreakdown.toggle() }
+                    }
                     .frame(width: 250, height: 250)
                     .padding(.vertical, 4)
-                    .appear(1)
+
+                    if showingBreakdown {
+                        TimeBreakdown(apps: model.apps, left: model.totalLimit - model.totalUsed) {
+                            withAnimation(Motion.smooth) { showingBreakdown = false }
+                        }
+                        .transition(.jellyPop)
+                    }
+                }
+                .appear(1)
 
                 statsRow.appear(2)
 
@@ -95,6 +107,81 @@ struct HomeView: View {
             Stat(value: model.myKeyholders.count, label: "hold your key")
             Rectangle().fill(Theme.line).frame(width: 0.5, height: 36)
             Stat(value: s?.improvement ?? 0, suffix: "%", label: "less than usual")
+        }
+    }
+}
+
+/// What makes up the blob's number: each limited app and what it has left.
+/// Opens when you tap the blob; tap it to fold it away.
+private struct TimeBreakdown: View {
+    let apps: [LimitedApp]
+    let left: Int
+    let onClose: () -> Void
+
+    private func minutesLeft(_ a: LimitedApp) -> Int { max(0, a.dailyMinutes - a.usedMinutes) }
+    private var sorted: [LimitedApp] { apps.sorted { minutesLeft($0) > minutesLeft($1) } }
+
+    var body: some View {
+        Button(action: onClose) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Your \(left) minutes, app by app")
+                        .font(.subheadline.weight(.bold))
+                    Spacer()
+                    Image(systemName: "chevron.up")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+                if apps.isEmpty {
+                    Text("No apps limited yet.").font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(Array(sorted.enumerated()), id: \.element.id) { i, app in
+                    row(app).appear(i)
+                }
+                Text("Each app keeps its own limit, so leftover time doesn't move between apps.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.fill.opacity(0.7), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.line, lineWidth: 0.5))
+        }
+        .buttonStyle(.pressable)
+        .foregroundStyle(Theme.ink)
+        .accessibilityHint("Hides the breakdown")
+    }
+
+    private func row(_ app: LimitedApp) -> some View {
+        let unlocked = app.isUnlocked()
+        let locked = app.isOver && !unlocked
+        return HStack(spacing: 12) {
+            Image(systemName: app.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.onColor)
+                .frame(width: 30, height: 30)
+                .background(locked ? Theme.fill : Theme.accentSoft,
+                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            Text(app.name).font(.subheadline.weight(.semibold))
+            Spacer()
+            if locked {
+                Label("Locked", systemImage: "lock.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            } else if unlocked {
+                Label("Unlocked", systemImage: "lock.open.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.ocean)
+            } else {
+                Text("\(minutesLeft(app)) min left")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(Theme.onColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Theme.lime, in: Capsule())
+            }
         }
     }
 }

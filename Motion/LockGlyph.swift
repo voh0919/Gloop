@@ -92,6 +92,8 @@ struct TimeBlob: View {
     let used: Int
     let limit: Int
     var compact = false
+    /// Called after the jiggle when it's tapped (Today uses it to show the breakdown).
+    var onTap: (() -> Void)? = nil
 
     @State private var displayed = 0
     @State private var squish = false
@@ -146,7 +148,7 @@ struct TimeBlob: View {
         }
         .scaleEffect(x: squish ? 1.08 : 1, y: squish ? 0.9 : 1)
         .contentShape(Circle())
-        .onTapGesture { jiggle() }
+        .onTapGesture { jiggle(); onTap?() }
         .sensoryFeedback(.impact(weight: .light), trigger: squish) { _, new in new }
         .onAppear {
             displayed = limit
@@ -159,6 +161,8 @@ struct TimeBlob: View {
         .animation(Motion.smooth, value: leftFraction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(left) minutes left today")
+        .accessibilityAddTraits(onTap == nil ? [] : .isButton)
+        .accessibilityHint(onTap == nil ? "" : "Shows how much time each app has left")
     }
 
     /// 0 most of the time; a quick decaying wobble once per cycle.
