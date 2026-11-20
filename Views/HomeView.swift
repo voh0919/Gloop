@@ -24,6 +24,23 @@ struct HomeView: View {
                     .frame(width: 250, height: 250)
                     .padding(.vertical, 4)
 
+                    // A small hint that the blob opens a per-app breakdown.
+                    if !showingBreakdown {
+                        Button {
+                            withAnimation(Motion.bouncy) { showingBreakdown = true }
+                        } label: {
+                            Label("Tap the blob to see each app", systemImage: "hand.tap.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Theme.fill, in: Capsule())
+                        }
+                        .buttonStyle(.pressable)
+                        .padding(.top, -10)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    }
+
                     if showingBreakdown {
                         TimeBreakdown(apps: model.apps, left: model.totalLimit - model.totalUsed) {
                             withAnimation(Motion.smooth) { showingBreakdown = false }
