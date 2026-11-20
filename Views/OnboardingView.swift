@@ -7,11 +7,11 @@ struct OnboardingView: View {
 
     private let pages: [(title: String, body: String)] = [
         ("Your people hold the key.",
-         "Friends, siblings, a parent: pick a few people you trust to keep your most distracting apps locked."),
+         "Friends or family lock your apps."),
         ("Ask, don't scroll.",
-         "Out of time? Ask your crew. They answer with a tap, and maybe a pep talk."),
+         "Out of time? Ask for more."),
         ("Keep each other honest.",
-         "Nudge your crew, cheer their streaks, and always with both of you agreeing."),
+         "Cheer streaks. Slime slip-ups."),
     ]
 
     var body: some View {
